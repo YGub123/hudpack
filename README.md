@@ -79,6 +79,17 @@ execute as @s run function dbchud:set_rich {name:"hp",parts:["血量 ",{icon:"he
 图标的编号（码点）是永久的：换图、改名、挪文件夹都不影响已经写好的指令。
 删除的图标编号会保留占位，防止旧指令显示错图；确定不要了可以在「码点管理」里释放。
 
+## 自定义字体
+
+不想一张张导图标、而是自己写了一套字体（json + 贴图）？把整套资源按资源包的目录结构丢进 `fonts/`：
+
+```
+fonts/assets/myns/font/fancy.json
+fonts/assets/myns/textures/font/fancy.png
+```
+
+点「开始构建」，工具会把它拷进资源包、逐字量宽、生成负宽版，并入总字体——**你的字形直接在组件 text 里打字符就能用**，对齐全自动，和内置字体待遇相同。两点建议：字形尽量放在没被占用的码点（私用区 U+E000 起最稳，会与图标共存，注意别和 `icons/` 分到的码点撞上，可从高段如 U+F000 开始）；TrueType（ttf）类型暂不支持，用 bitmap。
+
 ## 自定义颜色样式
 
 颜色不止 16 个原版色。打开 `hud_style.json`，在 `presets` 里加一条「样式」（任意 RGB 颜色 + 一个效果）：
@@ -105,6 +116,7 @@ execute as @s run function dbchud:set {name:"t",x:50,y:20,color:"warn",text:"BOS
 |---|---|
 | `hudpack.exe` | 主程序，双击开 |
 | `icons/` | 你的图标 PNG（里面的 registry.json 是编号账本，**别删，记得备份**） |
+| `fonts/` | 你自己的字体资源（可选，构建时自动量宽并入） |
 | `hud_style.json` | 颜色/效果/自定义样式配置（首次构建自动生成） |
 | `out/` | 构建产物（要拷进游戏的两个包在这） |
 | `vanilla/` | 原版字体素材，工具量字宽用（**别删**） |
