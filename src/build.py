@@ -70,7 +70,12 @@ w(os.path.join(RP, "assets", NS, "font", "hudruler.json"),
   '{"providers":[{"type":"space","advances":{' + ",".join(adv_pairs) + '}}]}')
 
 # —— 图标:iconpack 扫 ICONS/ → dbchud:icons + iconsneg(+half),持久 registry ——
-if os.path.isdir(ICONS) and any(f.lower().endswith(".png") for f in os.listdir(ICONS)):
+def _has_png(d):
+    for _r, _d, _fs in os.walk(d):
+        if any(f.lower().endswith(".png") for f in _fs):
+            return True
+    return False
+if os.path.isdir(ICONS) and _has_png(ICONS):
     _reg, _live = iconpack.build(ICONS, RP, ns=NS, vanilla_roots=[VANILLA], verbose=True)
     ICON_MAP = iconpack.resolve_map(_live)        # {名字: 转义} 给 B静态 ${} 替换用
     ICON_CHARS = {n: chr(int(e["cp"], 16)) for n, e in _live.items()}  # {名字: 字面字符} 给 B动态运行时表
@@ -82,16 +87,47 @@ else:
     ICON_MAP = {}; ICON_CHARS = {}; _icon = _iconneg = _iconneghalf = []
     print("  (ICONS/ 无 PNG,跳过图标;以后丢图重跑即可)")
 
+# —— 自定义字体接入:把整套字体资源(assets/<ns>/font/*.json + 贴图)丢进 fonts/,
+#    构建时拷进资源包、自动量宽、生成负宽,并入总字体。字形放未占用码点(如 PUA)最稳。——
+FONTS = os.path.join(HERE, "fonts")
+os.makedirs(FONTS, exist_ok=True)
+_extra_ids = []
+_fa = os.path.join(FONTS, "assets")
+if os.path.isdir(_fa):
+    import shutil as _sh
+    for _root, _dirs, _files in os.walk(_fa):
+        for _f in _files:
+            _src = os.path.join(_root, _f)
+            _rel = os.path.relpath(_src, FONTS)
+            _dst = os.path.join(RP, _rel)
+            os.makedirs(os.path.dirname(_dst), exist_ok=True)
+            _sh.copyfile(_src, _dst)
+            _parts = _rel.replace(os.sep, "/").split("/")
+            # assets/<ns>/font/<路径>.json → 字体 id <ns>:<路径>
+            if len(_parts) >= 4 and _parts[2] == "font" and _f.lower().endswith(".json"):
+                _extra_ids.append(_parts[1] + ":" + "/".join(_parts[3:])[:-5])
+_extra, _extraneg, _extraneghalf = [], [], []
+for _fid in _extra_ids:
+    _safe = _fid.replace(":", "_").replace("/", "_")
+    negfont.write_font(RP, "%s:neg_%s" % (NS, _safe),     negfont.neg_providers(_fid, [RP, VANILLA], -1.0))
+    negfont.write_font(RP, "%s:neghalf_%s" % (NS, _safe), negfont.neg_providers(_fid, [RP, VANILLA], -0.5))
+    _extra.append({"type": "reference", "id": _fid})
+    _extraneg.append({"type": "reference", "id": "%s:neg_%s" % (NS, _safe)})
+    _extraneghalf.append({"type": "reference", "id": "%s:neghalf_%s" % (NS, _safe)})
+if _extra_ids:
+    print("  自定义字体已并入:", ", ".join(_extra_ids))
+
 # —— 原版全字体的精确负宽(保留 filter:{uniform:false} → 自动跟随 Force Unicode)——
 negfont.write_font(RP, "%s:defaultneg" % NS,     negfont.neg_providers("minecraft:default", [RP, VANILLA], -1.0))
 negfont.write_font(RP, "%s:defaultneghalf" % NS, negfont.neg_providers("minecraft:default", [RP, VANILLA], -0.5))
 
-# —— 合并:可见 all=原版+图标;负宽 allneg=defaultneg+iconsneg(顺序一致 → 逐码点精确抵消)——
-negfont.write_font(RP, "%s:all" % NS,        [{"type": "reference", "id": "minecraft:default"}] + _icon)
-negfont.write_font(RP, "%s:allneg" % NS,     [{"type": "reference", "id": "%s:defaultneg" % NS}] + _iconneg)
-negfont.write_font(RP, "%s:allneghalf" % NS, [{"type": "reference", "id": "%s:defaultneghalf" % NS}] + _iconneghalf)
-# 可见正文用 dbchud:all(=原版+图标),负宽用 allneg。all 引用 minecraft:default(带 uniform filter),
-# 所以正文仍自动跟随 Force Unicode;defaultneg 保留同 filter → 两边同步,不再需要声明式 us 模式。
+# —— 合并:可见 all = 自定义字体 + 图标 + 原版;负宽 allneg 同序(逐码点精确抵消)。
+#    自定义在前:它定义的码点优先生效(原版 unifont 几乎覆盖全 BMP,放后面才不会盖住自定义)。——
+negfont.write_font(RP, "%s:all" % NS,        _extra + _icon + [{"type": "reference", "id": "minecraft:default"}])
+negfont.write_font(RP, "%s:allneg" % NS,     _extraneg + _iconneg + [{"type": "reference", "id": "%s:defaultneg" % NS}])
+negfont.write_font(RP, "%s:allneghalf" % NS, _extraneghalf + _iconneghalf + [{"type": "reference", "id": "%s:defaultneghalf" % NS}])
+# 可见正文用 dbchud:all,负宽用 allneg。all 引用 minecraft:default(带 uniform filter),
+# 所以正文自动跟随 Force Unicode;defaultneg 保留同 filter → 两边同步,无需玩家声明。
 
 # ========== 1b. 样式槽(hud_style.json):128 槽,每槽 = RGB 颜色 + 效果 ==========
 # 默认填成 16 色 × 8 效果的网格(与旧版完全兼容);presets 里加自定义样式(任意 RGB+效果)。
