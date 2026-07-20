@@ -6,6 +6,9 @@
 **下载**：到 [Releases](../../releases) 下载 `HUDPack.zip`（解压即用，含 exe）；
 或克隆仓库后运行 `python src/hudpack_ui.py`（纯标准库，无需 pip）。
 
+**只想做文字 HUD、不要自定义图标？** 连工具都不用装：`prebuilt/` 目录里有构建好的数据包和资源包，
+两个 zip 直接拖进游戏即可（见 [`prebuilt/README.md`](prebuilt/README.md)）。
+
 ## 快速上手（三步）
 
 **1. 双击 `hudpack.exe`，点「开始构建」。**
